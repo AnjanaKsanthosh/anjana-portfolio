@@ -3,18 +3,25 @@ FROM php:8.2-apache
 # Enable Apache mod_rewrite for clean routing and .htaccess support
 RUN a2enmod rewrite
 
-# Install MySQL PDO extension (SQLite PDO is already built-in in PHP 8.2)
-RUN docker-php-ext-install pdo pdo_mysql
+# Install unzip utility and MySQL PDO extension
+RUN apt-get update && apt-get install -y unzip && rm -rf /var/lib/apt/lists/* \
+    && docker-php-ext-install pdo pdo_mysql
 
 # Copy website files to Apache webroot
 COPY . /var/www/html/
+
+# If bundle.zip was uploaded, automatically extract all folders (admin, assets, config, database, includes)
+RUN if [ -f "/var/www/html/bundle.zip" ]; then \
+        unzip -o /var/www/html/bundle.zip -d /var/www/html/ \
+        && rm -f /var/www/html/bundle.zip; \
+    fi
 
 # If files were pushed inside an 'anjana-portfolio' subfolder, move them to root
 RUN if [ -d "/var/www/html/anjana-portfolio" ]; then \
         cp -rn /var/www/html/anjana-portfolio/* /var/www/html/ 2>/dev/null || true; \
     fi
 
-# Ensure database and image directories exist with -p (never fails), then grant permissions
+# Ensure database and image directories exist with -p, then grant permissions
 RUN mkdir -p /var/www/html/database /var/www/html/assets/images /var/www/html/assets/images/projects \
     && chown -R www-data:www-data /var/www/html/ \
     && chmod -R 775 /var/www/html/
